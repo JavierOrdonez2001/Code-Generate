@@ -51,7 +51,7 @@ function Home(){
         
             <div className="mt-6 flex gap-4">
                 <button onClick={() => setModalOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white text-lg font-semibold py-3 px-6 rounded-lg shadow-lg transition-all cursor-pointer">
-                    Generar 100 Código QR
+                    Generar un Código QR
                 </button>
                 <button onClick={GenerateBarCode} className="bg-green-500 hover:bg-green-600 text-white text-lg font-semibold py-3 px-6 rounded-lg shadow-lg transition-all cursor-pointer">
                     Generar 100 Código de Barras

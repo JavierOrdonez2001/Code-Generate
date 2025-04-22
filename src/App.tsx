@@ -1,10 +1,12 @@
 import Home from './pages/Home.tsx'
 import About from './pages/About.tsx'
+import Login from './pages/Login.tsx'
+
 import { Routes, Route, Link } from "react-router-dom";
 
 
 function App() {
-
+  
 
   return (
     <>
@@ -29,8 +31,9 @@ function App() {
         </nav>
 
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Home />} />
           <Route path='/about' element={<About />}/>
+          <Route path='/' element={<Login />}/>
         </Routes>
       </div>
    </>

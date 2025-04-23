@@ -2,6 +2,8 @@ import { businessBarCode } from '../logic/containers/BarCodeContainer.ts';
 import { businessQRCode } from '../logic/containers/QRCodeContainer.ts';
 import { useState } from 'react';
 import Modal from '../components/Modal.tsx';
+import BarNavegation from '../components/BarNavegation.tsx';
+
 
 function Home(){
     const [resource, setResource] = useState("");
@@ -20,10 +22,14 @@ function Home(){
 
     return (
         <>
+            <BarNavegation></BarNavegation>
+
           <div className="p-6 bg-gray-800 text-white rounded-lg shadow-lg flex justify-between items-center">
+
+            
             
             <div className="text-left">
-                <h1 className="text-2xl font-bold mb-4">Bienvenido a la Generadora de Códigos</h1>
+                <h1 className="text-2xl font-bold mb-4">Bienvenido a la TechStorePlus</h1>
                 <p className="text-lg">
                     Esta aplicación es una herramienta intuitiva y funcional diseñada para generar códigos de barra y códigos QR.
                     Puedes ingresar datos personalizados que se convertirán en códigos únicos, los cuales se exportarán en formato

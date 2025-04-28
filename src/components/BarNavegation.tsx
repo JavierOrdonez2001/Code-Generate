@@ -1,7 +1,14 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext"
 
 function BarNavegation(){
+    const { setAuthenticated } = useAuth();
+    const navigate = useNavigate();
 
+    const handleLogout = () => {
+        setAuthenticated(false);
+        navigate("/");
+    };
 
     return(
         <>
@@ -17,8 +24,13 @@ function BarNavegation(){
                 Sobre Nosotros
                 </Link>
                 </div>
-                <div>
+                <div className="flex items-center gap-4">
                     <img src="/DebugPug.jpg" alt="Pug Logo" className="h-10 w-10 rounded-full shadow-md" />
+                    <button
+                        className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 cursor-pointer"
+                        onClick={handleLogout}>
+                        Cerrar sesión
+                    </button>
                 </div>
             </nav>
 

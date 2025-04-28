@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.1",
+    "bcryptjs": "^3.0.2",
     "bwip-js": "^4.5.1",
+    "firebase": "^11.6.1",
     "jsbarcode": "^3.11.6",
     "jspdf": "^3.0.1",
     "pdfkit": "^0.16.0",

@@ -1,6 +1,7 @@
 import Home from './pages/Home.tsx'
 import About from './pages/About.tsx'
 import Login from './pages/Login.tsx'
+import ProductManagment from './pages/ProductManagment.tsx';
 import { Routes, Route, } from "react-router-dom";
 import PrivateRoute from './components/PrivateRoute.tsx';
 
@@ -20,6 +21,9 @@ function App() {
           <Route 
             path='/' 
             element={<Login />}/>
+          <Route
+            path='/product_managment'
+            element={<PrivateRoute><ProductManagment></ProductManagment></PrivateRoute>}/>
         </Routes>
       </div>
    </>

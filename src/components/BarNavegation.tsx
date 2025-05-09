@@ -23,6 +23,10 @@ function BarNavegation(){
                 <Link to="/about" className="text-blue-400 hover:text-blue-300 text-lg font-medium">
                 Sobre Nosotros
                 </Link>
+                <br />
+                <Link to="/product_managment" className="text-blue-400 hover:text-blue-300 text-lg font-medium" >
+                    Ingreso de Productos
+                </Link>
                 </div>
                 <div className="flex items-center gap-4">
                     <img src="/DebugPug.jpg" alt="Pug Logo" className="h-10 w-10 rounded-full shadow-md" />

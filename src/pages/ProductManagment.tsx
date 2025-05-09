@@ -3,6 +3,7 @@ import { businessSaveCodeWithProduct } from "../logic/containers/SaveCodeWithPro
 import { getDocs, collection, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import BarNavegation from "../components/BarNavegation";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface Producto {
   id: string;
@@ -18,6 +19,7 @@ function ProductManagment() {
   const [imagenUrl, setImagenUrl] = useState("");
   const [recursoQR, setRecursoQR] = useState("");
   const [eliminados, setEliminados] = useState<Set<string>>(new Set());
+  const [desapareciendo, setDesapareciendo] = useState<Set<string>>(new Set());
 
   const fetchProductos = async () => {
     const querySnapshot = await getDocs(collection(db, "products"));
@@ -35,9 +37,18 @@ function ProductManagment() {
   };
 
   const handleDelete = async (id: string) => {
-    await deleteDoc(doc(db, "products", id));
-    setEliminados(prev => new Set(prev).add(id));
-    setProductos(prev => prev.filter(p => p.id !== id));
+    setDesapareciendo(prev => new Set(prev).add(id));
+
+    setTimeout(async () => {
+      await deleteDoc(doc(db, "products", id));
+      setEliminados(prev => new Set(prev).add(id));
+      setProductos(prev => prev.filter(p => p.id !== id));
+      setDesapareciendo(prev => {
+        const nuevo = new Set(prev);
+        nuevo.delete(id);
+        return nuevo;
+      });
+    }, 300); // Esperamos a que se ejecute exit
   };
 
   useEffect(() => {
@@ -88,26 +99,37 @@ function ProductManagment() {
               No hay productos registrados aún.
             </p>
           ) : (
-            productos.map(producto => (
-              <div
-                key={producto.id}
-                className="bg-gray-800 p-4 rounded-lg shadow-lg text-white flex flex-col items-center"
-              >
-                <img src={producto.imagenProducto} alt={producto.nombre} className="h-40 w-40 object-cover rounded mb-3" />
-                <h3 className="text-xl font-semibold mb-2">{producto.nombre}</h3>
-                <img src={producto.barcodeBase64} alt="Código de barras" className="mb-2 w-full" />
-                <img src={producto.qrBase64} alt="Código QR" className="mb-4 w-1/2" />
-                <button
-                  onClick={() => handleDelete(producto.id)}
-                  disabled={eliminados.has(producto.id)}
-                  className={`px-4 py-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer ${
-                    eliminados.has(producto.id) ? "bg-red-600 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
-                  }`}
-                >
-                  {eliminados.has(producto.id) ? "Ingresado" : "Ingresar"}
-                </button>
-              </div>
-            ))
+            <AnimatePresence>
+              {productos
+                .filter(producto => !desapareciendo.has(producto.id)) // 🔥 Esto activa la animación
+                .map(producto => (
+                  <motion.div
+                    key={producto.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.3 }}
+                    layout
+                    className="bg-gray-800 p-4 rounded-lg shadow-lg text-white flex flex-col items-center"
+                  >
+                    <img src={producto.imagenProducto} alt={producto.nombre} className="h-40 w-40 object-cover rounded mb-3" />
+                    <h3 className="text-xl font-semibold mb-2">{producto.nombre}</h3>
+                    <img src={producto.barcodeBase64} alt="Código de barras" className="mb-2 w-full" />
+                    <img src={producto.qrBase64} alt="Código QR" className="mb-4 w-1/2" />
+                    <button
+                      onClick={() => handleDelete(producto.id)}
+                      disabled={eliminados.has(producto.id)}
+                      className={`px-4 py-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer ${
+                        eliminados.has(producto.id)
+                          ? "bg-red-600 cursor-not-allowed"
+                          : "bg-green-600 hover:bg-green-700"
+                      }`}
+                    >
+                      {eliminados.has(producto.id) ? "Ingresado" : "Ingresar"}
+                    </button>
+                  </motion.div>
+                ))}
+            </AnimatePresence>
           )}
         </div>
       </div>

@@ -8,12 +8,17 @@ class SaveCodeWithProductService{
         this.saveCodeWithProduct = saveCodeWithProduct;
     }
 
-    public async SaveCodeWithProduct(nombreProducto: string, imagenProductoUrl: string, recursoParaQR: string): Promise<string>{
-
-       return await this.saveCodeWithProduct.SaveCodeWithProduct(nombreProducto, imagenProductoUrl, recursoParaQR);
-
+    public async SaveCodeWithProduct(
+        nombreProducto: string,
+        imagenProductoUrl: string,
+        recursoParaQR: string
+    ): Promise<{
+        id: string;
+        barcodeBase64: string;
+        qrBase64: string;
+    }> {
+        return await this.saveCodeWithProduct.SaveCodeWithProduct(nombreProducto, imagenProductoUrl, recursoParaQR);
     }
-
 }
 
 

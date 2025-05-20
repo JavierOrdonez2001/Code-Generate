@@ -4,6 +4,7 @@ import { getDocs, collection, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import BarNavegation from "../components/BarNavegation";
 import { AnimatePresence, motion } from "framer-motion";
+import jsPDF from "jspdf";
 
 interface Producto {
   id: string;
@@ -29,7 +30,11 @@ function ProductManagment() {
 
   const handleSave = async () => {
     if (!nombre || !imagenUrl || !recursoQR) return alert("Por favor completa todos los campos");
-    await businessSaveCodeWithProduct.SaveCodeWithProduct(nombre, imagenUrl, recursoQR);
+    const data = await businessSaveCodeWithProduct.SaveCodeWithProduct(nombre, imagenUrl, recursoQR);
+
+     if (data?.barcodeBase64 && data?.qrBase64) {
+    await generarPDF(nombre, imagenUrl, data.barcodeBase64, data.qrBase64);
+    } 
     setNombre("");
     setImagenUrl("");
     setRecursoQR("");
@@ -54,6 +59,70 @@ function ProductManagment() {
   useEffect(() => {
     fetchProductos();
   }, []);
+
+
+  async function generarPDF(
+    nombre: string,
+    imagenProductoUrl: string,
+    barcodeBase64: string,
+    qrBase64: string
+  ) {
+    const doc = new jsPDF();
+
+    const productoImg = await getImageBase64FromUrlCrossOriginSafe(imagenProductoUrl);
+
+    // Título
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Ficha Técnica: ${nombre}`, 105, 20, { align: "center" });
+
+    // Imagen del producto con fondo
+    doc.setFillColor(245, 245, 245); // fondo gris claro
+    doc.rect(20, 30, 170, 60, "F");
+    doc.addImage(productoImg, "JPEG", 60, 35, 90, 50); // centrado en el rectángulo
+
+    // Código de barras
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "normal");
+    doc.text("Código de Barras:", 20, 105);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, 110, 170, 30, "F");
+    doc.addImage(barcodeBase64, "PNG", 25, 112, 160, 25);
+
+    // Código QR
+    doc.setFontSize(14);
+    doc.text("Código QR:", 20, 155);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, 160, 60, 60, "F");
+    doc.addImage(qrBase64, "PNG", 25, 165, 50, 50);
+
+    // Guardar PDF
+    const nombreSanitizado = nombre.replace(/\s+/g, "_");
+    doc.save(`${nombreSanitizado}_producto.pdf`);
+  }
+
+
+  async function getImageBase64FromUrlCrossOriginSafe(url: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = url;
+      img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject("No se pudo obtener el contexto del canvas");
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/jpeg"));
+      };
+        img.onerror = () => reject("No se pudo cargar la imagen");
+    });
+  }
+
+
+
+
 
   return (
     <>

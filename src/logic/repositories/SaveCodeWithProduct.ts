@@ -6,7 +6,7 @@ import { collection, addDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebase";
 
 class SaveCodeWithProduct implements ISaveCodeWithProduct {
-  async SaveCodeWithProduct(nombreProducto: string, imagenProductoUrl: string, recursoParaQR: string): Promise<string> {
+  async SaveCodeWithProduct(nombreProducto: string, imagenProductoUrl: string, recursoParaQR: string): Promise<{id: string; barcodeBase64: string; qrBase64: string}> {
     try {
       const uniqueCode = uuidv4();
 
@@ -33,7 +33,13 @@ class SaveCodeWithProduct implements ISaveCodeWithProduct {
       });
 
       console.log("✅ Producto guardado con imágenes en base64 correctamente en Firestore.");
-      return docRef.id;
+      return {
+      id: docRef.id,
+      barcodeBase64,
+      qrBase64
+    };
+
+    
     } catch (error) {
       console.error("❌ Error al guardar el producto con imágenes base64:", error);
       throw error;

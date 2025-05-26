@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { businessSaveCodeWithProduct } from "../logic/containers/SaveCodeWithProduct";
-import { getDocs, collection, deleteDoc, doc } from "firebase/firestore";
+import { getDocs, collection, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import BarNavegation from "../components/BarNavegation";
 import { AnimatePresence, motion } from "framer-motion";
 import jsPDF from "jspdf";
+import Modal from "../components/Modal";
 
 interface Producto {
   id: string;
@@ -16,11 +17,16 @@ interface Producto {
 
 function ProductManagment() {
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [idProducto, setIdProducto] = useState("");
   const [nombre, setNombre] = useState("");
   const [imagenUrl, setImagenUrl] = useState("");
   const [recursoQR, setRecursoQR] = useState("");
   const [eliminados, setEliminados] = useState<Set<string>>(new Set());
   const [desapareciendo, setDesapareciendo] = useState<Set<string>>(new Set());
+  const [isOpenModal, setIsOpenModal] = useState(false);
+  const [nombreUpdate, setNombreUpdate] = useState("");
+  const [imagenUrlUpdate, setImagenUrlUpdate] = useState("");
+  const [recursoQRUpdate, setRecursoQRUpdate] = useState("");
 
   const fetchProductos = async () => {
     const querySnapshot = await getDocs(collection(db, "products"));
@@ -32,8 +38,8 @@ function ProductManagment() {
     if (!nombre || !imagenUrl || !recursoQR) return alert("Por favor completa todos los campos");
     const data = await businessSaveCodeWithProduct.SaveCodeWithProduct(nombre, imagenUrl, recursoQR);
 
-     if (data?.barcodeBase64 && data?.qrBase64) {
-    await generarPDF(nombre, imagenUrl, data.barcodeBase64, data.qrBase64);
+    if (data?.barcodeBase64 && data?.qrBase64) {
+      await generarPDF(nombre, imagenUrl, data.barcodeBase64, data.qrBase64);
     } 
     setNombre("");
     setImagenUrl("");
@@ -41,8 +47,9 @@ function ProductManagment() {
     await fetchProductos();
   };
 
-  const handleDelete = async (id: string) => {
+  const handleEnterProduct = async (id: string) => {
     setDesapareciendo(prev => new Set(prev).add(id));
+    alert('Producto ingresado de manera exitosa')
 
     setTimeout(async () => {
       await deleteDoc(doc(db, "products", id));
@@ -77,9 +84,9 @@ function ProductManagment() {
     doc.text(`Ficha Técnica: ${nombre}`, 105, 20, { align: "center" });
 
     // Imagen del producto con fondo
-    doc.setFillColor(245, 245, 245); // fondo gris claro
+    doc.setFillColor(245, 245, 245); 
     doc.rect(20, 30, 170, 60, "F");
-    doc.addImage(productoImg, "JPEG", 60, 35, 90, 50); // centrado en el rectángulo
+    doc.addImage(productoImg, "JPEG", 60, 35, 90, 50); 
 
     // Código de barras
     doc.setFontSize(14);
@@ -120,7 +127,37 @@ function ProductManagment() {
     });
   }
 
+  async function handleUpdateProduct(id:string): Promise<void>{
+ try {
+    if (!nombreUpdate || !imagenUrlUpdate || !recursoQRUpdate) {
+      alert("Por favor completa todos los campos");
+      return;
+    }
 
+    const docRef = doc(db, "products", id);
+
+    await updateDoc(docRef, {
+      nombre: nombreUpdate,
+      imagenProducto: imagenUrlUpdate,
+      qrBase64: recursoQRUpdate,
+    });
+
+    alert("✅ Producto actualizado correctamente");
+
+    setNombreUpdate("");
+    setImagenUrlUpdate("");
+    setRecursoQRUpdate("");
+    setIdProducto("");
+    setIsOpenModal(false);
+
+    await fetchProductos();
+
+  } catch (error) {
+    console.error("❌ Error al actualizar el producto:", error);
+    alert("Ocurrió un error al actualizar el producto");
+  }
+
+  }
 
 
 
@@ -186,7 +223,7 @@ function ProductManagment() {
                     <img src={producto.barcodeBase64} alt="Código de barras" className="mb-2 w-full" />
                     <img src={producto.qrBase64} alt="Código QR" className="mb-4 w-1/2" />
                     <button
-                      onClick={() => handleDelete(producto.id)}
+                      onClick={() => handleEnterProduct(producto.id)}
                       disabled={eliminados.has(producto.id)}
                       className={`px-4 py-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer ${
                         eliminados.has(producto.id)
@@ -196,6 +233,63 @@ function ProductManagment() {
                     >
                       {eliminados.has(producto.id) ? "Ingresado" : "Ingresar"}
                     </button>
+                    <br />
+                    <button
+                    className="px-4 py-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer bg-blue-500 hover:bg-blue-600"
+                    onClick={() => {
+                      setIdProducto(producto.id);
+                      setNombreUpdate(producto.nombre);
+                      setImagenUrlUpdate(producto.imagenProducto);
+                      setRecursoQRUpdate(producto.qrBase64)
+                      setIsOpenModal(true);
+                    }}
+                    >
+                      Actualizar Producto
+                    </button>
+                    <br />
+                    <button
+                      className="px-4 py-2 mt-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer bg-yellow-500 hover:bg-yellow-600"
+                      onClick={() => generarPDF(
+                        producto.nombre,
+                        producto.imagenProducto,
+                        producto.barcodeBase64,
+                        producto.qrBase64
+                      )}
+                    >
+                      Imprimir PDF
+                    </button>
+                    <Modal isOpen={isOpenModal} onClose={() => setIsOpenModal(false)}>
+                      <h1>Actulizar producto</h1>
+                      <br />
+                      <input
+                        type="text"
+                        placeholder="Nombre del producto"
+                        className="w-full p-2 mb-3 rounded bg-gray-700 text-white"
+                        value={nombreUpdate}
+                        onChange={e => setNombreUpdate(e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="URL de imagen del producto"
+                        className="w-full p-2 mb-3 rounded bg-gray-700 text-white"
+                        value={imagenUrlUpdate}
+                        onChange={e => setImagenUrlUpdate(e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Recurso para el código QR (URL)"
+                        className="w-full p-2 mb-4 rounded bg-gray-700 text-white"
+                        value={recursoQRUpdate}
+                        onChange={e => setRecursoQRUpdate(e.target.value)}
+                      />
+                      <br />
+                      <button
+                        className="px-4 py-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer bg-blue-500 hover:bg-blue-600"
+                        onClick={() => handleUpdateProduct(idProducto)}
+                        >
+                        Actualizar Producto
+                      </button>
+                    </Modal>
                   </motion.div>
                 ))}
             </AnimatePresence>

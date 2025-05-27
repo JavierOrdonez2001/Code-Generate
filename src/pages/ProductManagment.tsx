@@ -161,6 +161,23 @@ function ProductManagment() {
 
 
 
+  
+  const handleDeleteProduct = async (id: string) => {
+    setDesapareciendo(prev => new Set(prev).add(id));
+    setTimeout(async () => {
+      await deleteDoc(doc(db, "products", id));
+      setEliminados(prev => new Set(prev).add(id));
+      setProductos(prev => prev.filter(p => p.id !== id));
+      setDesapareciendo(prev => {
+        const nuevo = new Set(prev);
+        nuevo.delete(id);
+        return nuevo;
+      });
+    }, 300); // Esperamos a que se ejecute exit
+  };
+
+
+
   return (
     <>
       <BarNavegation />
@@ -257,6 +274,13 @@ function ProductManagment() {
                       )}
                     >
                       Imprimir PDF
+                    </button>
+                    <br />
+                    <button
+                      className="px-4 py-2 mt-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer bg-red-500 hover:bg-red-600"
+                      onClick={() => handleDeleteProduct(producto.id)}
+                    >
+                      Eliminar Producto
                     </button>
                     <Modal isOpen={isOpenModal} onClose={() => setIsOpenModal(false)}>
                       <h1>Actulizar producto</h1>

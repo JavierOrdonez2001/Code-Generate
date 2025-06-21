@@ -1,10 +1,8 @@
 import { 
     IProductManagement, 
     IProduct, 
-    ProductFilters, 
-    ProductImportResult 
+    ProductFilters
 } from '../interfaces/IProductManagement';
-import { BarCodeType, BarCodeSource } from '../interfaces/IBarCodeGenerator';
 import { BarCodeValidationService } from './BarCodeValidationService';
 import { 
     collection, 
@@ -15,12 +13,10 @@ import {
     deleteDoc, 
     query, 
     where, 
-    orderBy,
     Timestamp,
     getDoc
 } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
-import { v4 as uuidv4 } from 'uuid';
 
 export class ProductService implements IProductManagement {
     

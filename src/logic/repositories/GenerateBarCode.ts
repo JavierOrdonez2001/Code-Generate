@@ -4,12 +4,10 @@ import { jsPDF } from "jspdf";
 import JsBarcode from "jsbarcode";
 import { v4 as uuidv4 } from "uuid"; 
 
-class GenerateBarCodePDF implements IBarCodeGenerator {
+export class GenerateBarCode implements IBarCodeGenerator {
 
-    private doc: jsPDF;
-
-    public constructor(){
-        this.doc = new jsPDF();
+    constructor() {
+        // this.doc = new jsPDF();
     }
 
     public async generateBarCode(data: string, type: BarCodeType): Promise<BarCodeResult> {
@@ -301,5 +299,3 @@ class GenerateBarCodePDF implements IBarCodeGenerator {
         }
     }
 }
-
-export default GenerateBarCodePDF;

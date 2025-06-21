@@ -1,8 +1,8 @@
-import GenerateBarCodePDF from '../repositories/GenerateBarCode.ts';
+import { GenerateBarCode } from '../repositories/GenerateBarCode.ts';
 import { IBarCodeGenerator, BarCodeType, Product, BarCodeResult } from '../interfaces/IBarCodeGenerator.ts';
 import BarCodeService from '../services/BarCodeService.ts';
 
-const generateBarCodePDF: IBarCodeGenerator = new GenerateBarCodePDF();
+const generateBarCodePDF: IBarCodeGenerator = new GenerateBarCode();
 
 export const businessBarCode = new BarCodeService(generateBarCodePDF);
 

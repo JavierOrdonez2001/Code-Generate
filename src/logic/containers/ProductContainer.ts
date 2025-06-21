@@ -1,7 +1,6 @@
 import { ProductService } from '../services/ProductService';
 import { IProduct, ProductFilters } from '../interfaces/IProductManagement';
 import { BarCodeType, BarCodeSource } from '../interfaces/IBarCodeGenerator';
-import { BarCodeValidationService } from '../services/BarCodeValidationService';
 
 const productService = new ProductService();
 

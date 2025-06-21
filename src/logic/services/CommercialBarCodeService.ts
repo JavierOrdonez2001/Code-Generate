@@ -1,4 +1,4 @@
-import { BarCodeType, CommercialBarCodeInfo, BarCodeSource } from '../interfaces/IBarCodeGenerator.ts';
+import { BarCodeType, CommercialBarCodeInfo } from '../interfaces/IBarCodeGenerator.ts';
 import { BarCodeValidationService } from './BarCodeValidationService.ts';
 
 export class CommercialBarCodeService {

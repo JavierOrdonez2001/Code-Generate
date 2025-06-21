@@ -3,7 +3,7 @@ import { businessQRCode } from '../logic/containers/QRCodeContainer.ts';
 import { useState } from 'react';
 import Modal from '../components/Modal.tsx';
 import BarNavegation from '../components/BarNavegation.tsx';
-import { BarCodeType, Product, BarCodeSource } from '../logic/interfaces/IBarCodeGenerator.ts';
+import { BarCodeType, BarCodeSource } from '../logic/interfaces/IBarCodeGenerator.ts';
 import { CommercialBarCodeService } from '../logic/services/CommercialBarCodeService.ts';
 
 function Home(){

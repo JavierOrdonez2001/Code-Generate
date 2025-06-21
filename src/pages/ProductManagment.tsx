@@ -1,326 +1,675 @@
 import { useEffect, useState } from "react";
-import { businessSaveCodeWithProduct } from "../logic/containers/SaveCodeWithProduct";
-import { getDocs, collection, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase/firebase";
+import { productBusiness } from "../logic/containers/ProductContainer";
+import { IProduct } from "../logic/interfaces/IProductManagement";
+import { BarCodeType, BarCodeSource } from "../logic/interfaces/IBarCodeGenerator";
+import { barCodeBusiness } from "../logic/containers/BarCodeContainer";
 import BarNavegation from "../components/BarNavegation";
-import { AnimatePresence, motion } from "framer-motion";
-import jsPDF from "jspdf";
 import Modal from "../components/Modal";
-
-interface Producto {
-  id: string;
-  nombre: string;
-  imagenProducto: string;
-  barcodeBase64: string;
-  qrBase64: string;
-}
+import InventorySummary from "../components/InventorySummary";
+import { AnimatePresence, motion } from "framer-motion";
 
 function ProductManagment() {
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [idProducto, setIdProducto] = useState("");
-  const [nombre, setNombre] = useState("");
-  const [imagenUrl, setImagenUrl] = useState("");
-  const [recursoQR, setRecursoQR] = useState("");
-  const [eliminados, setEliminados] = useState<Set<string>>(new Set());
-  const [desapareciendo, setDesapareciendo] = useState<Set<string>>(new Set());
-  const [isOpenModal, setIsOpenModal] = useState(false);
-  const [nombreUpdate, setNombreUpdate] = useState("");
-  const [imagenUrlUpdate, setImagenUrlUpdate] = useState("");
-  const [recursoQRUpdate, setRecursoQRUpdate] = useState("");
+  // State for products
+  const [products, setProducts] = useState<IProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const fetchProductos = async () => {
-    const querySnapshot = await getDocs(collection(db, "products"));
-    const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Producto[];
-    setProductos(data);
-  };
+  // State for forms
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<IProduct | null>(null);
 
-  const handleSave = async () => {
-    if (!nombre || !imagenUrl || !recursoQR) return alert("Por favor completa todos los campos");
-    const data = await businessSaveCodeWithProduct.SaveCodeWithProduct(nombre, imagenUrl, recursoQR);
+  // Form data for creating/editing products
+  const [formData, setFormData] = useState({
+    name: "",
+    sku: "",
+    description: "",
+    price: 0,
+    cost: 0,
+    category: "",
+    supplier: "",
+    barcodeType: BarCodeType.CODE_128 as BarCodeType,
+    barcodeData: "",
+    barcodeSource: BarCodeSource.INTERNAL as BarCodeSource,
+    stock: 0,
+    minStock: 0,
+    maxStock: 100,
+    location: ""
+  });
 
-    if (data?.barcodeBase64 && data?.qrBase64) {
-      await generarPDF(nombre, imagenUrl, data.barcodeBase64, data.qrBase64);
-    } 
-    setNombre("");
-    setImagenUrl("");
-    setRecursoQR("");
-    await fetchProductos();
-  };
+  // Stock update form
+  const [stockUpdate, setStockUpdate] = useState({
+    quantity: 0,
+    operation: "add" as "add" | "subtract"
+  });
 
-  const handleEnterProduct = async (id: string) => {
-    setDesapareciendo(prev => new Set(prev).add(id));
-    alert('Producto ingresado de manera exitosa')
-
-    setTimeout(async () => {
-      await deleteDoc(doc(db, "products", id));
-      setEliminados(prev => new Set(prev).add(id));
-      setProductos(prev => prev.filter(p => p.id !== id));
-      setDesapareciendo(prev => {
-        const nuevo = new Set(prev);
-        nuevo.delete(id);
-        return nuevo;
-      });
-    }, 300); // Esperamos a que se ejecute exit
-  };
-
+  // Load products and categories
   useEffect(() => {
-    fetchProductos();
+    loadProducts();
+    loadCategories();
   }, []);
 
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      console.log("🔄 Iniciando carga de productos...");
+      const productsData = await productBusiness.getAllProducts();
+      console.log("📦 Productos cargados:", productsData);
+      console.log("📊 Cantidad de productos:", productsData.length);
+      setProducts(productsData);
+      setRefreshTrigger(prev => prev + 1); // Trigger summary refresh
+      console.log("✅ Productos establecidos en el estado");
+    } catch (error) {
+      console.error("❌ Error loading products:", error);
+      alert("Error al cargar los productos");
+    } finally {
+      setLoading(false);
+      console.log("🏁 Carga de productos completada");
+    }
+  };
 
-  async function generarPDF(
-    nombre: string,
-    imagenProductoUrl: string,
-    barcodeBase64: string,
-    qrBase64: string
-  ) {
-    const doc = new jsPDF();
+  const loadCategories = async () => {
+    try {
+      const categoriesData = await productBusiness.getCategories();
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error("Error loading categories:", error);
+    }
+  };
 
-    const productoImg = await getImageBase64FromUrlCrossOriginSafe(imagenProductoUrl);
+  // Filter products based on search and category
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.barcodeData.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = !selectedCategory || product.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
-    // Título
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text(`Ficha Técnica: ${nombre}`, 105, 20, { align: "center" });
+  // Handle form submission for creating product
+  const handleCreateProduct = async () => {
+    try {
+      console.log("🚀 Iniciando creación de producto...");
+      console.log("📝 Datos del formulario:", formData);
+      
+      if (!formData.name || !formData.sku || !formData.category) {
+        alert("Por favor completa los campos obligatorios (Nombre, SKU, Categoría)");
+        return;
+      }
 
-    // Imagen del producto con fondo
-    doc.setFillColor(245, 245, 245); 
-    doc.rect(20, 30, 170, 60, "F");
-    doc.addImage(productoImg, "JPEG", 60, 35, 90, 50); 
+      console.log("✅ Validación de campos completada");
+      const createdProduct = await productBusiness.createProductWithBarcode(formData);
+      console.log("🎉 Producto creado:", createdProduct);
+      
+      alert("✅ Producto creado exitosamente");
+      setIsCreateModalOpen(false);
+      resetForm();
+      
+      console.log("🔄 Recargando productos...");
+      await loadProducts();
+      console.log("✅ Recarga completada");
+    } catch (error) {
+      console.error("❌ Error creating product:", error);
+      alert(`Error al crear el producto: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
+  };
 
-    // Código de barras
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "normal");
-    doc.text("Código de Barras:", 20, 105);
-    doc.setFillColor(245, 245, 245);
-    doc.rect(20, 110, 170, 30, "F");
-    doc.addImage(barcodeBase64, "PNG", 25, 112, 160, 25);
+  // Handle form submission for updating product
+  const handleUpdateProduct = async () => {
+    try {
+      if (!selectedProduct) return;
 
-    // Código QR
-    doc.setFontSize(14);
-    doc.text("Código QR:", 20, 155);
-    doc.setFillColor(245, 245, 245);
-    doc.rect(20, 160, 60, 60, "F");
-    doc.addImage(qrBase64, "PNG", 25, 165, 50, 50);
+      if (!formData.name || !formData.sku || !formData.category) {
+        alert("Por favor completa los campos obligatorios");
+        return;
+      }
 
-    // Guardar PDF
-    const nombreSanitizado = nombre.replace(/\s+/g, "_");
-    doc.save(`${nombreSanitizado}_producto.pdf`);
-  }
+      await productBusiness.updateProduct(selectedProduct.id, formData);
+      alert("✅ Producto actualizado exitosamente");
+      setIsEditModalOpen(false);
+      resetForm();
+      await loadProducts();
+    } catch (error) {
+      console.error("Error updating product:", error);
+      alert(`Error al actualizar el producto: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
+  };
 
+  // Handle stock update
+  const handleStockUpdate = async () => {
+    try {
+      if (!selectedProduct) return;
 
-  async function getImageBase64FromUrlCrossOriginSafe(url: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = url;
-      img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject("No se pudo obtener el contexto del canvas");
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL("image/jpeg"));
-      };
-        img.onerror = () => reject("No se pudo cargar la imagen");
-    });
-  }
+      await productBusiness.updateProductStock(
+        selectedProduct.id, 
+        stockUpdate.quantity, 
+        stockUpdate.operation
+      );
+      alert("✅ Stock actualizado exitosamente");
+      setIsStockModalOpen(false);
+      setStockUpdate({ quantity: 0, operation: "add" });
+      await loadProducts();
+    } catch (error) {
+      console.error("Error updating stock:", error);
+      alert(`Error al actualizar el stock: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
+  };
 
-  async function handleUpdateProduct(id:string): Promise<void>{
- try {
-    if (!nombreUpdate || !imagenUrlUpdate || !recursoQRUpdate) {
-      alert("Por favor completa todos los campos");
+  // Handle product deletion
+  const handleDeleteProduct = async (product: IProduct) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar el producto "${product.name}"?`)) {
       return;
     }
 
-    const docRef = doc(db, "products", id);
-
-    await updateDoc(docRef, {
-      nombre: nombreUpdate,
-      imagenProducto: imagenUrlUpdate,
-      qrBase64: recursoQRUpdate,
-    });
-
-    alert("✅ Producto actualizado correctamente");
-
-    setNombreUpdate("");
-    setImagenUrlUpdate("");
-    setRecursoQRUpdate("");
-    setIdProducto("");
-    setIsOpenModal(false);
-
-    await fetchProductos();
-
-  } catch (error) {
-    console.error("❌ Error al actualizar el producto:", error);
-    alert("Ocurrió un error al actualizar el producto");
-  }
-
-  }
-
-
-
-  
-  const handleDeleteProduct = async (id: string) => {
-    setDesapareciendo(prev => new Set(prev).add(id));
-    setTimeout(async () => {
-      await deleteDoc(doc(db, "products", id));
-      setEliminados(prev => new Set(prev).add(id));
-      setProductos(prev => prev.filter(p => p.id !== id));
-      setDesapareciendo(prev => {
-        const nuevo = new Set(prev);
-        nuevo.delete(id);
-        return nuevo;
-      });
-    }, 300); // Esperamos a que se ejecute exit
+    try {
+      await productBusiness.deleteProduct(product.id);
+      alert("✅ Producto eliminado exitosamente");
+      await loadProducts();
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      alert("Error al eliminar el producto");
+    }
   };
 
+  // Generate barcode PDF for product
+  const handleGenerateBarcodePDF = async (product: IProduct) => {
+    try {
+      await barCodeBusiness.generateSingleBarCodePDF(product.barcodeData, product.barcodeType);
+      alert("✅ PDF del código de barras generado exitosamente");
+    } catch (error) {
+      console.error("Error generating barcode PDF:", error);
+      alert("Error al generar el PDF del código de barras");
+    }
+  };
 
+  // Reset form data
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      sku: "",
+      description: "",
+      price: 0,
+      cost: 0,
+      category: "",
+      supplier: "",
+      barcodeType: BarCodeType.CODE_128,
+      barcodeData: "",
+      barcodeSource: BarCodeSource.INTERNAL,
+      stock: 0,
+      minStock: 0,
+      maxStock: 100,
+      location: ""
+    });
+  };
+
+  // Open edit modal with product data
+  const openEditModal = (product: IProduct) => {
+    setSelectedProduct(product);
+    setFormData({
+      name: product.name,
+      sku: product.sku,
+      description: product.description || "",
+      price: product.price,
+      cost: product.cost,
+      category: product.category,
+      supplier: product.supplier || "",
+      barcodeType: product.barcodeType,
+      barcodeData: product.barcodeData,
+      barcodeSource: product.barcodeSource,
+      stock: product.stock,
+      minStock: product.minStock,
+      maxStock: product.maxStock,
+      location: product.location || ""
+    });
+    setIsEditModalOpen(true);
+  };
+
+  // Open stock update modal
+  const openStockModal = (product: IProduct) => {
+    setSelectedProduct(product);
+    setIsStockModalOpen(true);
+  };
+
+  // Get stock status color
+  const getStockStatusColor = (product: IProduct) => {
+    if (product.stock === 0) return "text-red-500";
+    if (product.stock <= product.minStock) return "text-yellow-500";
+    return "text-green-500";
+  };
+
+  // Get stock status text
+  const getStockStatusText = (product: IProduct) => {
+    if (product.stock === 0) return "Sin stock";
+    if (product.stock <= product.minStock) return "Stock bajo";
+    return "En stock";
+  };
 
   return (
     <>
       <BarNavegation />
       <div className="p-6">
-        <h1 className="text-3xl font-bold text-white mb-6">Gestión de Productos para Envaseria</h1>
-
-        <div className="bg-gray-800 p-6 rounded-lg shadow-lg mb-10">
-          <h2 className="text-white text-xl mb-4">Crear nuevo producto</h2>
-
-          <input
-            type="text"
-            placeholder="Nombre del producto"
-            className="w-full p-2 mb-3 rounded bg-gray-700 text-white"
-            value={nombre}
-            onChange={e => setNombre(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="URL de imagen del producto"
-            className="w-full p-2 mb-3 rounded bg-gray-700 text-white"
-            value={imagenUrl}
-            onChange={e => setImagenUrl(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Recurso para el código QR (URL)"
-            className="w-full p-2 mb-4 rounded bg-gray-700 text-white"
-            value={recursoQR}
-            onChange={e => setRecursoQR(e.target.value)}
-          />
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-white">Gestión de Productos</h1>
           <button
-            onClick={handleSave}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded cursor-pointer"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
           >
-            Guardar Producto
+            + Nuevo Producto
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {productos.length === 0 ? (
-            <p className="text-white col-span-full text-center text-lg font-medium">
-              No hay productos registrados aún.
-            </p>
-          ) : (
-            <AnimatePresence>
-              {productos
-                .filter(producto => !desapareciendo.has(producto.id)) // 🔥 Esto activa la animación
-                .map(producto => (
-                  <motion.div
-                    key={producto.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ duration: 0.3 }}
-                    layout
-                    className="bg-gray-800 p-4 rounded-lg shadow-lg text-white flex flex-col items-center"
-                  >
-                    <img src={producto.imagenProducto} alt={producto.nombre} className="h-40 w-40 object-cover rounded mb-3" />
-                    <h3 className="text-xl font-semibold mb-2">{producto.nombre}</h3>
-                    <img src={producto.barcodeBase64} alt="Código de barras" className="mb-2 w-full" />
-                    <img src={producto.qrBase64} alt="Código QR" className="mb-4 w-1/2" />
-                    <button
-                      onClick={() => handleEnterProduct(producto.id)}
-                      disabled={eliminados.has(producto.id)}
-                      className={`px-4 py-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer ${
-                        eliminados.has(producto.id)
-                          ? "bg-red-600 cursor-not-allowed"
-                          : "bg-green-600 hover:bg-green-700"
-                      }`}
-                    >
-                      {eliminados.has(producto.id) ? "Ingresado" : "Ingresar"}
-                    </button>
-                    <br />
-                    <button
-                    className="px-4 py-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer bg-blue-500 hover:bg-blue-600"
-                    onClick={() => {
-                      setIdProducto(producto.id);
-                      setNombreUpdate(producto.nombre);
-                      setImagenUrlUpdate(producto.imagenProducto);
-                      setRecursoQRUpdate(producto.qrBase64)
-                      setIsOpenModal(true);
-                    }}
-                    >
-                      Actualizar Producto
-                    </button>
-                    <br />
-                    <button
-                      className="px-4 py-2 mt-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer bg-yellow-500 hover:bg-yellow-600"
-                      onClick={() => generarPDF(
-                        producto.nombre,
-                        producto.imagenProducto,
-                        producto.barcodeBase64,
-                        producto.qrBase64
-                      )}
-                    >
-                      Imprimir PDF
-                    </button>
-                    <br />
-                    <button
-                      className="px-4 py-2 mt-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer bg-red-500 hover:bg-red-600"
-                      onClick={() => handleDeleteProduct(producto.id)}
-                    >
-                      Eliminar Producto
-                    </button>
-                    <Modal isOpen={isOpenModal} onClose={() => setIsOpenModal(false)}>
-                      <h1>Actulizar producto</h1>
-                      <br />
-                      <input
-                        type="text"
-                        placeholder="Nombre del producto"
-                        className="w-full p-2 mb-3 rounded bg-gray-700 text-white"
-                        value={nombreUpdate}
-                        onChange={e => setNombreUpdate(e.target.value)}
-                      />
-                      <input
-                        type="text"
-                        placeholder="URL de imagen del producto"
-                        className="w-full p-2 mb-3 rounded bg-gray-700 text-white"
-                        value={imagenUrlUpdate}
-                        onChange={e => setImagenUrlUpdate(e.target.value)}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Recurso para el código QR (URL)"
-                        className="w-full p-2 mb-4 rounded bg-gray-700 text-white"
-                        value={recursoQRUpdate}
-                        onChange={e => setRecursoQRUpdate(e.target.value)}
-                      />
-                      <br />
-                      <button
-                        className="px-4 py-2 rounded-lg text-white font-bold shadow-md transition-all duration-300 cursor-pointer bg-blue-500 hover:bg-blue-600"
-                        onClick={() => handleUpdateProduct(idProducto)}
-                        >
-                        Actualizar Producto
-                      </button>
-                    </Modal>
-                  </motion.div>
+        {/* Inventory Summary */}
+        <InventorySummary refreshTrigger={refreshTrigger} />
+
+        {/* Search and Filter Section */}
+        <div className="bg-gray-800 p-4 rounded-lg shadow-lg mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Buscar</label>
+              <input
+                type="text"
+                placeholder="Buscar por nombre, SKU o código..."
+                className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:outline-none"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Categoría</label>
+              <select
+                className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:outline-none"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+              >
+                <option value="">Todas las categorías</option>
+                {categories.map(category => (
+                  <option key={category} value={category}>{category}</option>
                 ))}
-            </AnimatePresence>
-          )}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={() => { setSearchQuery(""); setSelectedCategory(""); }}
+                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors"
+              >
+                Limpiar Filtros
+              </button>
+            </div>
+          </div>
         </div>
+
+        {/* Products Grid */}
+        {(() => {
+          console.log("🎨 Renderizando productos...");
+          console.log("📊 Estado de loading:", loading);
+          console.log("📦 Productos en estado:", products);
+          console.log("🔍 Productos filtrados:", filteredProducts);
+          console.log("🔍 Búsqueda actual:", searchQuery);
+          console.log("🏷️ Categoría seleccionada:", selectedCategory);
+          
+          if (loading) {
+            return (
+              <div className="text-center py-8">
+                <div className="text-white text-lg">Cargando productos...</div>
+              </div>
+            );
+          } else if (filteredProducts.length === 0) {
+            return (
+              <div className="text-center py-8">
+                <div className="text-white text-lg">
+                  {searchQuery || selectedCategory ? "No se encontraron productos con los filtros aplicados" : "No hay productos registrados"}
+                </div>
+              </div>
+            );
+          } else {
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <AnimatePresence>
+                  {filteredProducts.map(product => (
+                    <motion.div
+                      key={product.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.3 }}
+                      className="bg-gray-800 p-4 rounded-lg shadow-lg text-white"
+                    >
+                      {/* Product Header */}
+                      <div className="mb-3">
+                        <h3 className="text-lg font-semibold mb-1">{product.name}</h3>
+                        <p className="text-sm text-gray-400">SKU: {product.sku}</p>
+                        <p className="text-sm text-gray-400">Código: {product.barcodeData}</p>
+                      </div>
+
+                      {/* Product Details */}
+                      <div className="mb-3 space-y-1">
+                        <p className="text-sm"><span className="text-gray-400">Categoría:</span> {product.category}</p>
+                        <p className="text-sm"><span className="text-gray-400">Precio:</span> ${product.price.toFixed(2)}</p>
+                        <p className="text-sm"><span className="text-gray-400">Costo:</span> ${product.cost.toFixed(2)}</p>
+                        <p className={`text-sm font-semibold ${getStockStatusColor(product)}`}>
+                          Stock: {product.stock} ({getStockStatusText(product)})
+                        </p>
+                        {product.supplier && (
+                          <p className="text-sm"><span className="text-gray-400">Proveedor:</span> {product.supplier}</p>
+                        )}
+                        {product.location && (
+                          <p className="text-sm"><span className="text-gray-400">Ubicación:</span> {product.location}</p>
+                        )}
+                      </div>
+
+                      {/* Product Actions */}
+                      <div className="space-y-2">
+                        <button
+                          onClick={() => openStockModal(product)}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors"
+                        >
+                          Gestionar Stock
+                        </button>
+                        <button
+                          onClick={() => handleGenerateBarcodePDF(product)}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors"
+                        >
+                          Generar PDF
+                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => openEditModal(product)}
+                            className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(product)}
+                            className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            );
+          }
+        })()}
+
+        {/* Create Product Modal */}
+        <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)}>
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4">Crear Nuevo Producto</h2>
+            <ProductForm
+              formData={formData}
+              setFormData={setFormData}
+              categories={categories}
+              onSubmit={handleCreateProduct}
+              submitText="Crear Producto"
+              onCancel={() => setIsCreateModalOpen(false)}
+            />
+          </div>
+        </Modal>
+
+        {/* Edit Product Modal */}
+        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)}>
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4">Editar Producto</h2>
+            <ProductForm
+              formData={formData}
+              setFormData={setFormData}
+              categories={categories}
+              onSubmit={handleUpdateProduct}
+              submitText="Actualizar Producto"
+              onCancel={() => setIsEditModalOpen(false)}
+            />
+          </div>
+        </Modal>
+
+        {/* Stock Update Modal */}
+        <Modal isOpen={isStockModalOpen} onClose={() => setIsStockModalOpen(false)}>
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4">
+              Gestionar Stock - {selectedProduct?.name}
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Stock Actual</label>
+                <p className="text-white font-semibold">{selectedProduct?.stock || 0}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Operación</label>
+                <select
+                  className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+                  value={stockUpdate.operation}
+                  onChange={(e) => setStockUpdate(prev => ({ ...prev, operation: e.target.value as "add" | "subtract" }))}
+                >
+                  <option value="add">Agregar Stock</option>
+                  <option value="subtract">Restar Stock</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Cantidad</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+                  value={stockUpdate.quantity}
+                  onChange={(e) => setStockUpdate(prev => ({ ...prev, quantity: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleStockUpdate}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition-colors"
+                >
+                  Actualizar Stock
+                </button>
+                <button
+                  onClick={() => setIsStockModalOpen(false)}
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </Modal>
       </div>
     </>
+  );
+}
+
+// Product Form Component
+interface ProductFormProps {
+  formData: any;
+  setFormData: (data: any) => void;
+  categories: string[];
+  onSubmit: () => void;
+  submitText: string;
+  onCancel: () => void;
+}
+
+function ProductForm({ formData, setFormData, categories, onSubmit, submitText, onCancel }: ProductFormProps) {
+  const barcodeTypes = barCodeBusiness.getAvailableBarCodeTypes();
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Nombre *</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="Nombre del producto"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">SKU *</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.sku}
+            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+            placeholder="Código SKU"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Descripción</label>
+        <textarea
+          className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          placeholder="Descripción del producto"
+          rows={3}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Precio *</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.price}
+            onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Costo *</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.cost}
+            onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Categoría *</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.category}
+            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+            placeholder="Categoría"
+            list="categories"
+          />
+          <datalist id="categories">
+            {categories.map(category => (
+              <option key={category} value={category} />
+            ))}
+          </datalist>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Proveedor</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.supplier}
+            onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+            placeholder="Nombre del proveedor"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Ubicación</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.location}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            placeholder="Ubicación en almacén"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Tipo de Código de Barras</label>
+          <select
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.barcodeType}
+            onChange={(e) => setFormData({ ...formData, barcodeType: e.target.value as BarCodeType })}
+          >
+            {barcodeTypes.map(type => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Código de Barras</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.barcodeData}
+            onChange={(e) => setFormData({ ...formData, barcodeData: e.target.value })}
+            placeholder="Dejar vacío para generar automáticamente"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Stock Inicial</label>
+          <input
+            type="number"
+            min="0"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.stock}
+            onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Stock Mínimo</label>
+          <input
+            type="number"
+            min="0"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.minStock}
+            onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Stock Máximo</label>
+          <input
+            type="number"
+            min="0"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.maxStock}
+            onChange={(e) => setFormData({ ...formData, maxStock: parseInt(e.target.value) || 100 })}
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-4">
+        <button
+          onClick={onSubmit}
+          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors"
+        >
+          {submitText}
+        </button>
+        <button
+          onClick={onCancel}
+          className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -21,7 +21,7 @@ function BarNavegation(){
                 </Link>
                 <br />
                 <Link to="/about" className="text-blue-400 hover:text-blue-300 text-lg font-medium">
-                Sobre Nosotros
+                Sobre Nuestra Aplicación
                 </Link>
                 <br />
                 <Link to="/product_managment" className="text-blue-400 hover:text-blue-300 text-lg font-medium" >

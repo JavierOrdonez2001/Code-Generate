@@ -178,7 +178,7 @@ function Home(){
                         setResource("");
                         setModalOpen(false);
                     }}
-                    className="px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition focus:ring-2 focus:ring-green-400"
+                    className="px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition focus:ring-2 focus:ring-green-400 cursor-pointer"
                 >
                     Guardar Recurso
                 </button>
@@ -299,7 +299,7 @@ function Home(){
                 <div className="mb-4">
                     <button
                         onClick={generateSampleCommercialCode}
-                        className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700 transition"
+                        className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700 transition cursor-pointer"
                     >
                         Generar Código de Muestra
                     </button>
@@ -317,7 +317,7 @@ function Home(){
                         setCommercialInfo(null);
                         setBarCodeModalOpen(false);
                     }}
-                    className="px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition"
+                    className="px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition cursor-pointer"
                 >
                     Cancelar
                 </button>

@@ -23,8 +23,25 @@ function ProductManagment() {
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<IProduct | null>(null);
 
-  // Form data for creating/editing products
-  const [formData, setFormData] = useState({
+  // Separate form data for creating and editing products
+  const [createFormData, setCreateFormData] = useState({
+    name: "",
+    sku: "",
+    description: "",
+    price: 0,
+    cost: 0,
+    category: "",
+    supplier: "",
+    barcodeType: BarCodeType.CODE_128 as BarCodeType,
+    barcodeData: "",
+    barcodeSource: BarCodeSource.INTERNAL as BarCodeSource,
+    stock: 0,
+    minStock: 0,
+    maxStock: 100,
+    location: ""
+  });
+
+  const [editFormData, setEditFormData] = useState({
     name: "",
     sku: "",
     description: "",
@@ -94,20 +111,20 @@ function ProductManagment() {
   const handleCreateProduct = async () => {
     try {
       console.log("🚀 Iniciando creación de producto...");
-      console.log("📝 Datos del formulario:", formData);
+      console.log("📝 Datos del formulario:", createFormData);
       
-      if (!formData.name || !formData.sku || !formData.category) {
+      if (!createFormData.name || !createFormData.sku || !createFormData.category) {
         alert("Por favor completa los campos obligatorios (Nombre, SKU, Categoría)");
         return;
       }
 
       console.log("✅ Validación de campos completada");
-      const createdProduct = await productBusiness.createProductWithBarcode(formData);
+      const createdProduct = await productBusiness.createProductWithBarcode(createFormData);
       console.log("🎉 Producto creado:", createdProduct);
       
       alert("✅ Producto creado exitosamente");
       setIsCreateModalOpen(false);
-      resetForm();
+      resetCreateForm();
       
       console.log("🔄 Recargando productos...");
       await loadProducts();
@@ -123,15 +140,15 @@ function ProductManagment() {
     try {
       if (!selectedProduct) return;
 
-      if (!formData.name || !formData.sku || !formData.category) {
+      if (!editFormData.name || !editFormData.sku || !editFormData.category) {
         alert("Por favor completa los campos obligatorios");
         return;
       }
 
-      await productBusiness.updateProduct(selectedProduct.id, formData);
+      await productBusiness.updateProduct(selectedProduct.id, editFormData);
       alert("✅ Producto actualizado exitosamente");
       setIsEditModalOpen(false);
-      resetForm();
+      resetEditForm();
       await loadProducts();
     } catch (error) {
       console.error("Error updating product:", error);
@@ -186,9 +203,9 @@ function ProductManagment() {
     }
   };
 
-  // Reset form data
-  const resetForm = () => {
-    setFormData({
+  // Reset create form data
+  const resetCreateForm = () => {
+    setCreateFormData({
       name: "",
       sku: "",
       description: "",
@@ -206,10 +223,36 @@ function ProductManagment() {
     });
   };
 
+  // Reset edit form data
+  const resetEditForm = () => {
+    setEditFormData({
+      name: "",
+      sku: "",
+      description: "",
+      price: 0,
+      cost: 0,
+      category: "",
+      supplier: "",
+      barcodeType: BarCodeType.CODE_128,
+      barcodeData: "",
+      barcodeSource: BarCodeSource.INTERNAL,
+      stock: 0,
+      minStock: 0,
+      maxStock: 100,
+      location: ""
+    });
+  };
+
+  // Open create modal with clean form
+  const openCreateModal = () => {
+    resetCreateForm(); // Always start with a clean form
+    setIsCreateModalOpen(true);
+  };
+
   // Open edit modal with product data
   const openEditModal = (product: IProduct) => {
     setSelectedProduct(product);
-    setFormData({
+    setEditFormData({
       name: product.name,
       sku: product.sku,
       description: product.description || "",
@@ -255,8 +298,8 @@ function ProductManagment() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-white">Gestión de Productos</h1>
           <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+            onClick={openCreateModal}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors cursor-pointer"
           >
             + Nuevo Producto
           </button>
@@ -294,7 +337,7 @@ function ProductManagment() {
             <div className="flex items-end">
               <button
                 onClick={() => { setSearchQuery(""); setSelectedCategory(""); }}
-                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors"
+                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors cursor-pointer"
               >
                 Limpiar Filtros
               </button>
@@ -365,26 +408,26 @@ function ProductManagment() {
                       <div className="space-y-2">
                         <button
                           onClick={() => openStockModal(product)}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors"
+                          className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors cursor-pointer"
                         >
                           Gestionar Stock
                         </button>
                         <button
                           onClick={() => handleGenerateBarcodePDF(product)}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors"
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors cursor-pointer"
                         >
                           Generar PDF
                         </button>
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => openEditModal(product)}
-                            className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors"
+                            className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors cursor-pointer"
                           >
                             Editar
                           </button>
                           <button
                             onClick={() => handleDeleteProduct(product)}
-                            className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors"
+                            className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 px-3 rounded transition-colors cursor-pointer"
                           >
                             Eliminar
                           </button>
@@ -402,12 +445,11 @@ function ProductManagment() {
         <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)}>
           <div className="p-6">
             <h2 className="text-xl font-bold text-white mb-4">Crear Nuevo Producto</h2>
-            <ProductForm
-              formData={formData}
-              setFormData={setFormData}
+            <CreateProductForm
+              formData={createFormData}
+              setFormData={setCreateFormData}
               categories={categories}
               onSubmit={handleCreateProduct}
-              submitText="Crear Producto"
               onCancel={() => setIsCreateModalOpen(false)}
             />
           </div>
@@ -417,12 +459,11 @@ function ProductManagment() {
         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)}>
           <div className="p-6">
             <h2 className="text-xl font-bold text-white mb-4">Editar Producto</h2>
-            <ProductForm
-              formData={formData}
-              setFormData={setFormData}
+            <EditProductForm
+              formData={editFormData}
+              setFormData={setEditFormData}
               categories={categories}
               onSubmit={handleUpdateProduct}
-              submitText="Actualizar Producto"
               onCancel={() => setIsEditModalOpen(false)}
             />
           </div>
@@ -463,13 +504,13 @@ function ProductManagment() {
               <div className="flex gap-2">
                 <button
                   onClick={handleStockUpdate}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition-colors"
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition-colors cursor-pointer"
                 >
                   Actualizar Stock
                 </button>
                 <button
                   onClick={() => setIsStockModalOpen(false)}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors"
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -482,17 +523,16 @@ function ProductManagment() {
   );
 }
 
-// Product Form Component
-interface ProductFormProps {
+// Create Product Form Component
+interface CreateProductFormProps {
   formData: any;
   setFormData: (data: any) => void;
   categories: string[];
   onSubmit: () => void;
-  submitText: string;
   onCancel: () => void;
 }
 
-function ProductForm({ formData, setFormData, categories, onSubmit, submitText, onCancel }: ProductFormProps) {
+function CreateProductForm({ formData, setFormData, categories, onSubmit, onCancel }: CreateProductFormProps) {
   const barcodeTypes = barCodeBusiness.getAvailableBarCodeTypes();
 
   return (
@@ -562,9 +602,9 @@ function ProductForm({ formData, setFormData, categories, onSubmit, submitText, 
             value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
             placeholder="Categoría"
-            list="categories"
+            list="categories-create"
           />
-          <datalist id="categories">
+          <datalist id="categories-create">
             {categories.map(category => (
               <option key={category} value={category} />
             ))}
@@ -658,13 +698,203 @@ function ProductForm({ formData, setFormData, categories, onSubmit, submitText, 
       <div className="flex gap-2 pt-4">
         <button
           onClick={onSubmit}
-          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors"
+          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors cursor-pointer"
         >
-          {submitText}
+          Crear Producto
         </button>
         <button
           onClick={onCancel}
-          className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors"
+          className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors cursor-pointer"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Edit Product Form Component
+interface EditProductFormProps {
+  formData: any;
+  setFormData: (data: any) => void;
+  categories: string[];
+  onSubmit: () => void;
+  onCancel: () => void;
+}
+
+function EditProductForm({ formData, setFormData, categories, onSubmit, onCancel }: EditProductFormProps) {
+  const barcodeTypes = barCodeBusiness.getAvailableBarCodeTypes();
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Nombre *</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="Nombre del producto"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">SKU *</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.sku}
+            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+            placeholder="Código SKU"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Descripción</label>
+        <textarea
+          className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          placeholder="Descripción del producto"
+          rows={3}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Precio *</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.price}
+            onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Costo *</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.cost}
+            onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Categoría *</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.category}
+            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+            placeholder="Categoría"
+            list="categories-edit"
+          />
+          <datalist id="categories-edit">
+            {categories.map(category => (
+              <option key={category} value={category} />
+            ))}
+          </datalist>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Proveedor</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.supplier}
+            onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+            placeholder="Nombre del proveedor"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Ubicación</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.location}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            placeholder="Ubicación en almacén"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Tipo de Código de Barras</label>
+          <select
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.barcodeType}
+            onChange={(e) => setFormData({ ...formData, barcodeType: e.target.value as BarCodeType })}
+          >
+            {barcodeTypes.map(type => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Código de Barras</label>
+          <input
+            type="text"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.barcodeData}
+            onChange={(e) => setFormData({ ...formData, barcodeData: e.target.value })}
+            placeholder="Código de barras actual"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Stock Actual</label>
+          <input
+            type="number"
+            min="0"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.stock}
+            onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Stock Mínimo</label>
+          <input
+            type="number"
+            min="0"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.minStock}
+            onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Stock Máximo</label>
+          <input
+            type="number"
+            min="0"
+            className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+            value={formData.maxStock}
+            onChange={(e) => setFormData({ ...formData, maxStock: parseInt(e.target.value) || 100 })}
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-4">
+        <button
+          onClick={onSubmit}
+          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors cursor-pointer"
+        >
+          Actualizar Producto
+        </button>
+        <button
+          onClick={onCancel}
+          className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors cursor-pointer"
         >
           Cancelar
         </button>

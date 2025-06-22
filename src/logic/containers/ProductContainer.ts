@@ -116,6 +116,7 @@ export const productBusiness = {
     async getInventorySummary(): Promise<{
         totalProducts: number;
         totalValue: number;
+        totalCost: number;
         lowStockProducts: number;
         outOfStockProducts: number;
     }> {
@@ -123,12 +124,14 @@ export const productBusiness = {
         
         const totalProducts = products.length;
         const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
+        const totalCost = products.reduce((sum, p) => sum + (p.cost * p.stock), 0);
         const lowStockProducts = products.filter(p => p.stock <= p.minStock && p.stock > 0).length;
         const outOfStockProducts = products.filter(p => p.stock === 0).length;
 
         return {
             totalProducts,
             totalValue,
+            totalCost,
             lowStockProducts,
             outOfStockProducts
         };

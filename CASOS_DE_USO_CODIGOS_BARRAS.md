@@ -761,5 +761,5 @@ async getInventorySummary(): Promise<InventorySummaryData> {
 
 **📅 Fecha de Creación**: Diciembre 2024  
 **📋 Versión**: 1.0  
-**👤 Autor**: Javier Ordoñez Barra 
+**👤 Autor**: Javier Ordoñez Barra. 
 **🏢 Proyecto**: Bar Code Management System 
